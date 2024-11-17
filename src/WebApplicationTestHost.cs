@@ -6,8 +6,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Diagnostics;
 
-namespace Microsoft.AspNetCore.Mvc.IntegrationTesting;
+namespace Nickogl.AspNetCore.IntegrationTesting;
 
 /// <summary>
 /// Host ASP.NET Core web applications in the test process.
@@ -18,11 +19,15 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTesting;
 /// or shutdown behavior, it should create its separate instance of the class.
 /// </remarks>
 /// <typeparam name="TEntryPoint">Entrypoint of the web application under test.</typeparam>
-public class WebApplicationTestHost<TEntryPoint> : IDisposable where TEntryPoint : class
+public class WebApplicationTestHost<TEntryPoint> : IDisposable, IAsyncDisposable where TEntryPoint : class
 {
 	/// <summary>Maximum number of times to retry restarting the web application.</summary>
 	/// <remarks>Set this to a higher value if you have a massive amount of concurrent tests.</remarks>
 	public static int MaximumRestartRetries { get; set; } = 100;
+
+	/// <summary>Safety timeout when shutting down the application.</summary>
+	/// <remarks>Set this to a higher value if your hosted services have lengthy stopping tasks.</remarks>
+	public static TimeSpan ShutdownTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
 	private readonly object _syncRoot = new();
 	private readonly string _environment;
@@ -184,20 +189,11 @@ public class WebApplicationTestHost<TEntryPoint> : IDisposable where TEntryPoint
 
 		_previousPort = BaseAddress.Port;
 
-		// We are not using StopAsync because it causes hosted services to be stopped
+		// We are not using Host.StopAsync because it causes hosted services to be stopped
 		// twice for all Microsoft.AspNetCore.Builder.WebApplication-based applications.
-		// This is because the stop triggers a cancellation token that causes WaitForShutdownAsync
+		// This is because it triggers a cancellation token that causes WaitForShutdownAsync
 		// (inside RunAsync) to unblock, after which it calls StopAsync again.
-		var tcs = new TaskCompletionSource<bool>();
-		var lifetime = _webApplicationFactoryWrapper.Host.Services.GetRequiredService<IHostApplicationLifetime>();
-		lifetime.ApplicationStopped.Register(() => tcs.TrySetResult(true));
-		terminationToken.Register(() => tcs.TrySetResult(false));
-		lifetime.StopApplication();
-		if (!await tcs.Task.ConfigureAwait(false))
-		{
-			// If stopping did not complete, use StopAsync to forcefully terminate the application
-			await _webApplicationFactoryWrapper.Host.StopAsync(terminationToken).ConfigureAwait(false);
-		}
+		await StopApplication(terminationToken).ConfigureAwait(false);
 
 		// HACK: The disposal of the host (and with it the service collection) only
 		// happens after ApplicationStopped was triggered. To ensure stable and reproducible
@@ -205,38 +201,51 @@ public class WebApplicationTestHost<TEntryPoint> : IDisposable where TEntryPoint
 		// disposed of. There are no cancellation tokens or diagnostic events that
 		// trigger upon disposal to my knowledge, so wait until the service collection
 		// throws an ObjectDisposedException.
-		async Task WaitForDisposal(CancellationToken cancellationToken)
-		{
-			try
-			{
-				while (!cancellationToken.IsCancellationRequested)
-				{
-					_ = _webApplicationFactoryWrapper!.Host.Services.GetRequiredService<IHostApplicationLifetime>();
-					await Task.Delay(1, cancellationToken);
-				}
-			}
-			catch (Exception e) when (e is OperationCanceledException || e is ObjectDisposedException)
-			{
-			}
-		}
-		var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
-		await WaitForDisposal(cts.Token);
+		var cts = CancellationTokenSource.CreateLinkedTokenSource(terminationToken);
+		cts.CancelAfter(TimeSpan.FromMilliseconds(500));
+		await WaitForDisposal(cts.Token).ConfigureAwait(false);
 
-		_webApplicationFactoryWrapper.Dispose();
+		await _webApplicationFactoryWrapper.DisposeAsync().ConfigureAwait(false);
 		_webApplicationFactoryWrapper = null;
 	}
 
 	public virtual void Dispose()
 	{
-		lock (_syncRoot)
+		if (!_disposed)
 		{
-			if (!_disposed)
-			{
-				_webApplicationFactoryWrapper?.Dispose();
-				_webApplicationFactoryWrapper = null;
-				_disposed = true;
-			}
+			DisposeAsync()
+				.AsTask()
+				.ConfigureAwait(false)
+				.GetAwaiter()
+				.GetResult();
 		}
+
+		GC.SuppressFinalize(this);
+	}
+
+	public virtual async ValueTask DisposeAsync()
+	{
+		if (_disposed)
+		{
+			return;
+		}
+
+		if (_webApplicationFactoryWrapper != null)
+		{
+			try
+			{
+				var cts = new CancellationTokenSource(delay: ShutdownTimeout);
+				await StopApplication(cts.Token).ConfigureAwait(false);
+				await WaitForDisposal(cts.Token).ConfigureAwait(false);
+			}
+			catch (Exception)
+			{
+			}
+
+			await _webApplicationFactoryWrapper.DisposeAsync().ConfigureAwait(false);
+		}
+
+		_disposed = true;
 
 		GC.SuppressFinalize(this);
 	}
@@ -279,6 +288,49 @@ public class WebApplicationTestHost<TEntryPoint> : IDisposable where TEntryPoint
 		}
 	}
 
+	private async Task StopApplication(CancellationToken terminationToken = default)
+	{
+		Debug.Assert(_webApplicationFactoryWrapper != null);
+
+		var tcs = new TaskCompletionSource();
+		var lifetime = _webApplicationFactoryWrapper.Host.Services.GetRequiredService<IHostApplicationLifetime>();
+		lifetime.ApplicationStopped.Register(() => tcs.TrySetResult());
+		lifetime.StopApplication();
+
+		try
+		{
+			await tcs.Task.WaitAsync(ShutdownTimeout, terminationToken).ConfigureAwait(false);
+		}
+		catch (Exception)
+		{
+			try
+			{
+				// If stopping did not complete in the allotted time, forcefully terminate the application
+				var cts = new CancellationTokenSource();
+				cts.Cancel();
+				await _webApplicationFactoryWrapper.Host.StopAsync(cts.Token).ConfigureAwait(false);
+			}
+			catch (Exception)
+			{
+			}
+		}
+	}
+
+	private async Task WaitForDisposal(CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			while (!cancellationToken.IsCancellationRequested)
+			{
+				_ = _webApplicationFactoryWrapper!.Host.Services.GetRequiredService<IHostApplicationLifetime>();
+				await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+			}
+		}
+		catch (Exception e) when (e is OperationCanceledException || e is ObjectDisposedException)
+		{
+		}
+	}
+
 	private sealed class WebApplicationFactoryWrapper : WebApplicationFactory<TEntryPoint>
 	{
 		private readonly WebApplicationTestHost<TEntryPoint> _parent;
@@ -295,6 +347,15 @@ public class WebApplicationTestHost<TEntryPoint> : IDisposable where TEntryPoint
 			_parent = parent;
 		}
 
+		public override ValueTask DisposeAsync()
+		{
+			// Our Kestrel host is not owned by the underlying WebApplicationFactory,
+			// so we need to dispose of it ourselves
+			_host?.Dispose();
+
+			return base.DisposeAsync();
+		}
+
 		protected override IHost CreateHost(IHostBuilder builder)
 		{
 			// Allocate real port instead of using the built-in test server, as this allows
@@ -305,10 +366,11 @@ public class WebApplicationTestHost<TEntryPoint> : IDisposable where TEntryPoint
 			_host = builder.Build();
 
 			// Create dummy test host so internal logic of WebApplicationFactory is satisfied
-			builder = Extensions.Hosting.Host.CreateDefaultBuilder();
+			builder = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder();
 			builder.ConfigureWebHost(options =>
 			{
-				// Suppress the default behavior, otherwise we would create two instances of the service
+				// Suppress the default behavior, otherwise we would start all hosted services
+				// twice, which can be quite expensive depending on the application
 				options.UseTestServer();
 				options.UseStartup<NoopStartup>();
 			});

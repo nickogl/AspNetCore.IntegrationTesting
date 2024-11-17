@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.IntegrationTesting;
+﻿using Nickogl.AspNetCore.IntegrationTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;

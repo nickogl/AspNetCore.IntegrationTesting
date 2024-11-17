@@ -1,4 +1,4 @@
-namespace Microsoft.AspNetCore.Mvc.IntegrationTesting;
+namespace Nickogl.AspNetCore.IntegrationTesting;
 
 /// <summary>
 /// Represents errors that occur during web application bootstrapping.
