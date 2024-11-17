@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "aspnetcore-integration-testing", "src\aspnetcore-integration-testing.csproj", "{F530E6A6-B528-4F53-866B-2CAA2F6E2002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sample", "sample\sample.csproj", "{BFEAAA57-57FC-4BB3-AE6C-FE9D0BECC181}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sample-test", "sample-test\sample-test.csproj", "{FA63AA65-4766-43A2-8DAC-C72BE6F8A847}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F530E6A6-B528-4F53-866B-2CAA2F6E2002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F530E6A6-B528-4F53-866B-2CAA2F6E2002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F530E6A6-B528-4F53-866B-2CAA2F6E2002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F530E6A6-B528-4F53-866B-2CAA2F6E2002}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BFEAAA57-57FC-4BB3-AE6C-FE9D0BECC181}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFEAAA57-57FC-4BB3-AE6C-FE9D0BECC181}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFEAAA57-57FC-4BB3-AE6C-FE9D0BECC181}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFEAAA57-57FC-4BB3-AE6C-FE9D0BECC181}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FA63AA65-4766-43A2-8DAC-C72BE6F8A847}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA63AA65-4766-43A2-8DAC-C72BE6F8A847}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA63AA65-4766-43A2-8DAC-C72BE6F8A847}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA63AA65-4766-43A2-8DAC-C72BE6F8A847}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

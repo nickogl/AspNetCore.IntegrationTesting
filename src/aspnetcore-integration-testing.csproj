@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net6.0;net8.0;net9.0</TargetFrameworks>
+    <RootNamespace>Microsoft.AspNetCore.Mvc.IntegrationTesting</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Title>ASP.NET Core Integration Testing</Title>
+    <Description>
+      This library hosts ASP.NET Core web applications in the test process, making
+      tests easy to debug and allowing each of them to configure the web application
+      differently. It supports hooking into each stage of the startup, so one can
+      modify configuration, DI services and middleware.
+
+      Unlike WebApplicationFactory from the Microsoft.AspNetCore.Mvc.Testing package,
+      it hosts the web applications with Kestrel, allowing one to make real HTTP
+      requests against the application and also test websocket endpoints. It is
+      thus ideal for orchestrating integration tests of various components.
+    </Description>
+    <PackageTags>IntegrationTesting;Testing;WebApplication;WebApplicationFactory;AspNetCore;WebSocket</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="6.0.36" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
+  </ItemGroup>
+</Project>
