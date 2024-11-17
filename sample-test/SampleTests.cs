@@ -73,6 +73,29 @@ public class SampleTests
 		Assert.AreEqual(1, hostedService.DisposedCount);
 	}
 
+	[TestMethod]
+	public async Task ShouldAddMiddleware()
+	{
+		int observedRequests = 0;
+		using var app = new WebApplicationTestHost<Program>();
+		app.ConfigureApplication(app =>
+		{
+			app.Use((next) =>
+			{
+				return async httpContext =>
+				{
+					await next(httpContext);
+					Interlocked.Increment(ref observedRequests);
+				};
+			});
+		});
+		using var httpClient = new HttpClient() { BaseAddress = app.BaseAddress };
+
+		await httpClient.GetAsync("/text");
+
+		Assert.AreEqual(1, observedRequests);
+	}
+
 	private sealed class SampleServiceMock : ISampleService
 	{
 		public Task<string> FetchResource()
