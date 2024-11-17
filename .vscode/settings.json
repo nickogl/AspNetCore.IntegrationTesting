@@ -1,0 +1,14 @@
+{
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp",
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true
+  },
+  "omnisharp.organizeImportsOnFormat": true,
+  "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+  "dotnet.defaultSolution": "aspnetcore-integration-testing.sln"
+}
